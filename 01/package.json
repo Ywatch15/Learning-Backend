@@ -1,0 +1,24 @@
+{
+  "name": "backend---sheryians",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "sundram pathak",
+  "type": "commonjs",
+  "main": "script.js,src.js",
+  "scripts": {
+    "start": "node ./script.js",
+    "hatt": "echo \"bsdk\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "accessibility": "^3.0.9",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "one-liner-joke": "^1.2.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": []
+}
