@@ -60,6 +60,9 @@ This project serves as an educational resource for developers learning:
 - **bcrypt**: Password hashing library for secure password storage
 - **jsonwebtoken (JWT)**: Token-based authentication for stateless sessions
 - **cookie-parser**: Middleware for parsing HTTP cookies
+### File Uploads
+- **multer**: Middleware for parsing multipart/form-data and handling file uploads
+- **crypto (Node core)**: Generates cryptographically strong random filenames for uploaded files
 
 ### Frontend Technologies
 - **EJS (Embedded JavaScript)**: Templating engine for server-side rendering
@@ -77,14 +80,19 @@ This project serves as an educational resource for developers learning:
 09/
 ├── app.js                 # Main application file with routes and server setup
 ├── package.json           # Project dependencies and configuration
+├── config/
+│   └── multerconfig.js    # Centralized Multer storage config (crypto-based filenames)
 ├── models/                # Database models and schemas
-│   ├── user.js           # User model with authentication fields
-│   └── post.js           # Post model with content and relationships
-└── views/                # EJS templates for frontend rendering
-    ├── index.ejs         # User registration page
-    ├── login.ejs         # User login page
-    ├── profile.ejs       # User dashboard with posts
-    └── edit.ejs          # Post editing interface
+│   ├── user.js            # User model with authentication fields
+│   └── post.js            # Post model with content and relationships
+├── public/
+│   └── uploads/           # Upload destination served statically at /uploads
+└── views/                 # EJS templates for frontend rendering
+    ├── index.ejs          # User registration page
+    ├── login.ejs          # User login page
+    ├── profile.ejs        # User dashboard with posts
+    ├── profileupload.ejs  # Upload form for profile picture
+    └── edit.ejs           # Post editing interface
 ```
 
 ### File Responsibilities
@@ -95,6 +103,8 @@ This project serves as an educational resource for developers learning:
 - Middleware implementation
 - Database connections
 - Authentication logic
+- Static file serving of `public/`
+- File upload handling using centralized Multer config (`config/multerconfig.js`) with crypto-based filenames
 
 **`models/user.js`**
 - User schema definition
@@ -116,18 +126,52 @@ This project serves as an educational resource for developers learning:
 
 ---
 
-## 🗄 Database Schema Design
+## 📤 File Uploads
+
+The app uses a centralized Multer configuration with Node's `crypto` to generate collision-resistant filenames, and serves uploads from `public/uploads`.
+
+### How it works
+
+- Storage: `config/multerconfig.js` defines `multer.diskStorage({ destination: './public/uploads', filename: crypto.randomBytes(14) + ext })`.
+- Static: `app.use(express.static(path.join(__dirname, 'public')))` exposes uploaded files at `/uploads/<filename>`.
+- Routes:
+    - `GET /profile/upload` renders an EJS form (`views/profileupload.ejs`).
+    - `POST /upload` is protected by `isLoggedIn` and `upload.single('image')`; it saves the file and updates `user.profilepic` with `req.file.filename`, then redirects to `/profile`.
+
+### Expected form
+
+The file input name must be `image` and the form must use `multipart/form-data`:
+```html
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="image" accept="image/*" />
+    <button type="submit">Upload</button>
+</form>
+```
+
+### Security notes
+
+- Randomized filenames via `crypto.randomBytes()` help avoid collisions and keep original extensions.
+- Consider adding `limits` (file size) and `fileFilter` (MIME types) to Multer for tighter control.
+- Keep uploads in `public/uploads` and reference them as `/uploads/<filename>` in templates (see `profile.ejs`).
+
+---
+
+## �🗄 Database Schema Design
 
 ### User Schema (`models/user.js`)
 
 ```javascript
 const userSchema = mongoose.Schema({
     username: String,        // Unique username for display
-    name: String,           // Full name of the user
-    age: Number,            // Age for profile information
-    email: String,          // Primary identifier for authentication
-    password: String,       // Hashed password for security
-    posts: [                // Array of post references
+    name: String,            // Full name of the user
+    age: Number,             // Age for profile information
+    email: String,           // Primary identifier for authentication
+    password: String,        // Hashed password for security
+    profilepic: {            // Stored filename for avatar
+        type: String,
+        default: 'default.jpg'
+    },
+    posts: [                 // Array of post references
         {type: mongoose.Schema.Types.ObjectId, ref: 'post'}
     ]
 })
@@ -439,6 +483,11 @@ graph TD
 - **Response**: Renders `login.ejs` template
 - **Authentication**: Not required
 
+#### `GET /profile/upload`
+- **Purpose**: Render a profile picture upload form
+- **Response**: Renders `profileupload.ejs`
+- **Authentication**: Not required (form only)
+
 ### Authentication Endpoints
 
 #### `POST /register`
@@ -485,6 +534,12 @@ graph TD
   ```
 - **Response**: Redirect to profile page
 - **Authentication**: Required
+
+#### `POST /upload`
+- **Purpose**: Upload a single file from form field `image`
+- **Body**: multipart/form-data with `image`
+- **Response**: Updates the logged-in user's `profilepic` with `req.file.filename` and redirects to `/profile`
+- **Authentication**: Required (protected by `isLoggedIn`)
 
 #### `GET /like/:id`
 - **Purpose**: Like or unlike a post
